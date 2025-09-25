@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Checklist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:Inter,system-ui,Arial;margin:20px;}
+    .top{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+    .day{margin:18px 0;}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}
+    th{background:#f3f4f6}
+    .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer}
+    .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+    .muted{color:#6b7280}
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h2 id="title" style="margin:0">Checklist</h2>
+    <button id="saveBtn" class="btn primary">Save progress</button>
+    <span id="msg" class="muted"></span>
+  </div>
+  <div id="wrap"></div>
+
+<script>
+(async function(){
+  const qs = new URLSearchParams(location.search);
+  const plan   = qs.get('plan') || 'default';
+  const start  = Number(qs.get('startDay') || '1');
+  const days   = Number(qs.get('days') || '3');
+  const token  = qs.get('t') || '';   // CHECK_TOKEN if present
+  const api    = (localStorage.getItem('apiBase')) || 'https://web-production-f116.up.railway.app';
+
+  document.getElementById('title').textContent = `Checklist — Day ${start} to ${start+days-1}`;
+
+  // fetch grid
+  const grid = await fetch(`${api}/plans/${encodeURIComponent(plan)}/grid`).then(r=>r.json());
+
+  // index cells by (area,day)
+  const byKey = new Map();
+  for (const c of grid.cells||[]) byKey.set(`${c.area}__${c.day}`, c);
+
+  const wrap = document.getElementById('wrap');
+  wrap.innerHTML = '';
+
+  for (let d = start; d < start+days; d++){
+    const dayDiv = document.createElement('div');
+    dayDiv.className = 'day';
+    dayDiv.innerHTML = `<h3 style="margin:0 0 8px 0">Day ${d}</h3>`;
+    const tbl = document.createElement('table');
+    tbl.innerHTML = `<thead><tr><th>Done</th><th>Area</th><th>Task</th><th>Role</th><th>Workers</th><th>Hours</th></tr></thead><tbody></tbody>`;
+    const tbody = tbl.querySelector('tbody');
+
+    // build rows from every area present in grid
+    const areas = [...new Set(grid.cells.map(c=>c.area))].sort();
+    for (const area of areas){
+      const cell = byKey.get(`${area}__${d}`) || {activities:[]};
+      const acts = cell.activities || [];
+      if (!acts.length){
+        // show a gray empty row for visibility
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td></td><td>${esc(area)}</td><td class="muted" colspan="4">No tasks</td>`;
+        tbody.appendChild(tr);
+        continue;
+      }
+      acts.forEach((raw, idx)=>{
+        let t={}; try{ t = typeof raw==='string'? JSON.parse(raw) : raw }catch(_){}
+        const name = t.name || t.n || String(raw);
+        const role = t.role || t.r || '';
+        const w    = t.workers ?? t.w ?? 0;
+        const h    = t.hours   ?? t.h ?? 0;
+        const done = Boolean(t.done || t.d || t.x || t.dd);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="checkbox" data-area="${esc(area)}" data-day="${d}" data-idx="${idx}" ${done?'checked':''}></td>
+          <td>${esc(area)}</td>
+          <td>${esc(name)}</td>
+          <td>${esc(role)}</td>
+          <td>${w}</td>
+          <td>${h}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    dayDiv.appendChild(tbl);
+    wrap.appendChild(dayDiv);
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', async ()=>{
+    const msg = document.getElementById('msg');
+    msg.textContent = 'Saving...';
+    const checks = [...document.querySelectorAll('input[type=checkbox][data-idx]')];
+
+    // group by cell (area,day)
+    const map = new Map();
+    for (const cb of checks){
+      const area = cb.dataset.area, day = Number(cb.dataset.day), idx = Number(cb.dataset.idx);
+      const key = `${area}__${day}`;
+      if (!map.has(key)) map.set(key, {area, day, done:[], undone:[]});
+      (cb.checked ? map.get(key).done : map.get(key).undone).push(idx);
+    }
+    const updates = [...map.values()];
+
+    try{
+      const res = await fetch(`${api}/ops/checklist_mark?token=${encodeURIComponent(token)}`,{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body: JSON.stringify({ plan_id: plan, updates })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      msg.textContent = 'Saved ✓';
+      setTimeout(()=> msg.textContent = '', 1500);
+    }catch(e){
+      msg.textContent = 'Save failed: ' + (e.message||e);
+    }
+  });
+
+  function esc(s){ return String(s||'').replace(/[&<>]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+})();
+</script>
+</body>
+</html>

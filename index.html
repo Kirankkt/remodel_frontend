@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Remodeling Schedule Planner</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="assets/styles.css" />
+  <!-- SheetJS for XLSX import -->
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="title">Remodeling Schedule Planner</div>
+
+    <div class="controls">
+      <label class="chk"><input id="allowMultiple" type="checkbox" /> Allow multiple activities per cell</label>
+
+      <input id="startDate" type="date" />
+      <button id="applyDatesBtn" class="btn">Apply Dates</button>
+
+      <button id="settingsBtn" class="btn">Settings</button>
+      <button id="importCsvBtn" class="btn">Import CSV/XLSX</button>
+      <input id="csvFileInput" type="file" accept=".csv,.xlsx" hidden />
+
+      <button id="syncBtn" class="btn">Sync</button>
+      <button id="undoBtn" class="btn">Undo</button>
+      <button id="redoBtn" class="btn">Redo</button>
+
+      <button id="reportsBtn" class="btn">Reports</button>
+      <button id="resetBtn" class="btn danger">Reset</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- left palette -->
+    <aside class="left">
+      <h3>Activities (drag)</h3>
+      <div id="palette" class="palette"></div>
+
+      <div class="quick">
+        <h4>Quick add to cell</h4>
+        <input id="quickName" class="inp" placeholder="Task name (e.g., False ceiling)" />
+        <select id="quickRole" class="inp"></select>
+        <input id="quickWorkers" class="inp" placeholder="# Workers" inputmode="numeric" />
+        <input id="quickHours" class="inp" placeholder="Hours/day" inputmode="decimal" />
+        <button id="quickAddBtn" class="btn w100">+ Add</button>
+      </div>
+    </aside>
+
+    <!-- grid -->
+    <section class="grid-wrap">
+      <div class="grid-scroll">
+        <table id="grid" class="grid">
+          <thead>
+            <tr id="theadRow">
+              <th>Area / Day</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Task modal -->
+  <div id="taskModal" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <div id="taskModalTitle">Edit tasks</div>
+        <button id="closeTaskBtn" class="btn icon">✕</button>
+      </div>
+
+      <div id="taskList" class="task-list"></div>
+
+      <div class="editor">
+        <div class="row">
+          <input id="tName" class="inp" placeholder="Task name" />
+          <select id="tRole" class="inp"></select>
+        </div>
+        <div class="row">
+          <input id="tWorkers" class="inp" placeholder="# Workers" inputmode="numeric" />
+          <input id="tHours" class="inp" placeholder="Hours/day" inputmode="decimal" />
+        </div>
+        <div class="row">
+          <input id="tVendor" class="inp" placeholder="Vendor (optional)" />
+          <input id="tCost" class="inp" placeholder="Cost (optional)" inputmode="decimal" />
+        </div>
+        <div class="row">
+          <input id="tMaterials" class="inp" placeholder="Materials (optional)" />
+        </div>
+        <div class="row">
+          <label class="lbl">Order due <input id="tOrderDue" type="date" class="inp" /></label>
+          <label class="lbl"><input id="tOrdered" type="checkbox" /> Ordered</label>
+          <label class="lbl">Delivery due <input id="tDeliveryDue" type="date" class="inp" /></label>
+          <label class="lbl"><input id="tDelivered" type="checkbox" /> Delivered</label>
+        </div>
+        <button id="addTaskBtn" class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsModal" class="modal" aria-hidden="true">
+    <div class="modal-panel small">
+      <div class="modal-head">
+        <div>Settings</div>
+        <button id="closeSettingsBtn" class="btn icon">✕</button>
+      </div>
+      <div class="settings-body">
+        <label>Backend URL <input id="cfgApiBase" class="inp" placeholder="https://web-production-f116.up.railway.app/" /></label>
+        <label>API Key <input id="cfgApiKey" class="inp" /></label>
+        <label>Plan ID <input id="cfgPlanId" class="inp" placeholder="default" /></label>
+        <label>Email test now
+          <button id="emailNowBtn" class="btn" type="button">Send 3-day checklist</button>
+        </label>
+      </div>
+      <div class="settings-foot">
+        <button id="saveSettingsBtn" class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports modal -->
+  <div id="reportsModal" class="modal" aria-hidden="true">
+    <div class="modal-panel wide">
+      <div class="modal-head">
+        <div>Reports</div>
+        <div class="modal-actions">
+          <button id="exportCsvBtn" class="btn">Export CSV</button>
+          <button id="emailFromReportsBtn" class="btn">Email 3-day checklist</button>
+          <button id="closeReportsBtn" class="btn icon">✕</button>
+        </div>
+      </div>
+      <div id="reportsTabs" class="tabs"></div>
+      <div id="reportsBody" class="reports-body"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initState } from './js/state.js';
+    import { initUI }    from './js/ui.js';
+    import { initGrid }  from './js/grid.js';
+    import { wireReports } from './js/reports.js';
+    import './js/importers.js';
+
+    initState();
+    initUI();
+    initGrid();
+    wireReports();
+  </script>
+</body>
+</html>
