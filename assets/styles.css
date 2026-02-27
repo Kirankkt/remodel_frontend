@@ -1,4 +1,6 @@
+/* ===== Tokens ===== */
 :root{
+  /* base */
   --bg:#ffffff;
   --fg:#0f172a;
   --muted:#6b7280;
@@ -7,19 +9,43 @@
   --chip-role:#dbeafe;
   --primary:#2563eb;
   --danger:#ef4444;
+
+  /* sticky header height (tweak if you change header sizing) */
+  --topbar-h:56px;
+
+  /* role accent colors */
+  --electrical:#3b82f6; /* blue 500 */
+  --plumbing:#06b6d4;   /* cyan 500 */
+  --carpentry:#f59e0b;  /* amber 500 */
+  --demolition:#ef4444; /* red 500 */
+  --civil:#10b981;      /* emerald 500 */
+  --tiling:#8b5cf6;     /* violet 500 */
+  --painting:#db2777;   /* pink 600 */
+  --other:#64748b;      /* slate 500 */
+
+  /* defaults if a role isn’t mapped */
+  --role-default:#64748b;
+  --rolebg-default:#e2e8f0;
 }
 
 *{ box-sizing:border-box }
-html,body{ height:100% }
+html,body{ height:100%; overflow-x:hidden; }
+
 body{
-  margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
-  color:var(--fg); background:var(--bg);
+  margin:0;
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--fg);
+  background:var(--bg);
 }
 
+/* ===== Top bar ===== */
 .topbar{
-  position:sticky; top:0; z-index:20;
+  position:sticky; top:0; z-index:50; /* above sticky table headers */
   display:flex; align-items:center; gap:16px;
-  padding:10px 12px; border-bottom:1px solid var(--line); background:#fff;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  background:#fff;                   /* opaque so grid doesn’t show through */
+  box-shadow:0 4px 12px rgba(0,0,0,.06);
 }
 .topbar .title{ font-weight:600 }
 .controls{ display:flex; gap:8px; flex-wrap:wrap; align-items:center }
@@ -38,51 +64,117 @@ body{
   width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:14px;
 }
 
-.layout{ display:grid; grid-template-columns:300px 1fr; gap:12px; padding:12px }
-.left{ position:relative }
+/* ===== Layout ===== */
+.layout{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:12px;
+  padding:12px;
+}
+
+/* Left palette column sticks under the header */
+.left{
+  position:sticky;
+  top:var(--topbar-h);
+  align-self:start;
+  height:calc(100vh - var(--topbar-h) - 24px); /* 24px = layout padding top+bottom (12+12) */
+  overflow:auto;
+  background:#fff;  /* avoids see-through over grid edge */
+  z-index:5;
+}
 .left h3{ margin:0 0 8px 0 }
 
-.palette{ display:grid; gap:8px; max-height:60vh; overflow:auto; padding-right:6px }
+/* Palette list scrolls inside the left column */
+.palette{
+  display:grid; gap:8px;
+  max-height:none;           /* no extra cap; container handles the height */
+  overflow:auto; padding-right:6px;
+}
 .pal{
   display:flex; flex-direction:column; gap:4px;
   padding:10px; border:1px solid var(--line); border-radius:12px; background:#fff;
+  --accent:#e5e7eb;
+  border-left:4px solid var(--accent);
+  transition:transform .1s ease, box-shadow .1s ease;
 }
+.pal:hover{ transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,.06) }
 .pal .role{ color:var(--muted); font-size:12px }
 
+/* Quick add */
 .quick{ margin-top:14px; display:grid; gap:8px }
 .w100{ width:100% }
 
-.grid-wrap{ min-height:70vh }
-.grid-scroll{ overflow:auto; border:1px solid var(--line); border-radius:12px; contain: paint }
+/* ===== Grid ===== */
+.grid-wrap{ min-height:70vh; min-width:0 } /* allow grid column to own the horizontal scroll */
 
-.grid{ border-collapse:separate; border-spacing:0; width:max-content; min-width:100% }
-.grid thead th{
-  position:sticky; top:0; z-index:10;
-  background:#fff; border-bottom:1px solid var(--line); font-weight:600; padding:8px 10px;
+/* OWN the vertical + horizontal scroll and sit below the top bar */
+.grid-scroll{
+  position:sticky;
+  top:var(--topbar-h);
+  max-height:calc(100vh - var(--topbar-h) - 24px); /* align with left column */
+  overflow:auto;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  contain:paint;
 }
-.grid tbody th, .grid thead th:first-child{ position:sticky; left:0; z-index:9; background:#fff }
+
+.grid{
+  border-collapse:separate; border-spacing:0;
+  width:max-content; min-width:100%;
+}
+
+/* Header row stays visible while .grid-scroll scrolls */
+.grid thead th{
+  position:sticky; top:0; z-index:15;          /* above left sticky cells and tasks */
+  background:#fff; border-bottom:1px solid var(--line);
+  font-weight:600; padding:8px 10px;
+}
+
+/* Left “Area” column stays visible while scrolling horizontally */
+.grid tbody th,
+.grid thead th:first-child{
+  position:sticky; left:0; background:#fff;
+}
+
+/* Layering so the top-left corner is above everything */
+.grid thead th:first-child{ z-index:16; }  /* corner (top + left) */
+.grid tbody th{ z-index:14; }              /* left column cells under header */
+
 .grid th, .grid td{ border-right:1px solid var(--line); border-bottom:1px solid var(--line) }
 .grid td{ width:360px; height:140px; vertical-align:top; padding:8px; background:#fff }
 .cell-actions{ display:flex; gap:6px; margin-top:4px }
 .cell-actions .btn{ padding:4px 8px; font-size:12px }
 
+/* softer alternating rows */
+.grid td{ background:#fff; }
+.grid tbody tr:nth-child(odd) td{ background:#fcfcfd; }
+
+/* ===== Task cards ===== */
 .task{
   display:inline-flex; flex-direction:column; gap:6px;
   max-width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:18px;
   background:#f8fdff; margin:4px 0; will-change:transform;
+  --accent:#e5e7eb;
+  border-left:5px solid var(--accent);
+  box-shadow:0 4px 10px rgba(0,0,0,.04);
+  background:linear-gradient(0deg, color-mix(in srgb, var(--accent) 6%, #fff), #fff);
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
+.task:hover{ transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,.06) }
 .task .label{ font-weight:600 }
 .task .meta{ color:var(--muted); font-size:12px }
 .task .role{ font-size:12px; background:var(--chip-role); padding:2px 6px; border-radius:12px }
 .task .flags{ font-size:12px }
 .task .edit, .task .x{
   border:1px solid var(--line); background:#fff; border-radius:8px; padding:2px 6px;
-  cursor:pointer; font-size:12px; margin-left:4px
+  cursor:pointer; font-size:12px; margin-left:4px;
 }
 .task.selected{ outline:2px solid var(--primary) }
 
 .drag-over{ outline:2px dashed var(--primary) }
 
+/* ===== Modals ===== */
 .modal{
   position:fixed; inset:0; display:none; place-items:center; background:rgba(15,23,42,.40);
   z-index:1000;
@@ -94,178 +186,74 @@ body{
   box-shadow:0 20px 36px rgba(0,0,0,.18); padding:12px;
 }
 .modal-panel.small{ width:min(520px,calc(100vw - 28px)) }
-.modal-panel.wide{ width:min(1200px,calc(100vw - 28px)) }
+.modal-panel.wide{  width:min(1200px,calc(100vw - 28px)) }
 
-.modal-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:8px; border-bottom:1px solid var(--line) }
+.modal-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding-bottom:8px; border-bottom:1px solid var(--line);
+}
 .modal-actions{ display:flex; gap:8px }
 .task-list{ padding:8px 0; border-bottom:1px solid var(--line) }
 .editor{ display:grid; gap:8px; padding-top:8px }
 .editor .row{ display:grid; grid-template-columns:1fr 1fr; gap:8px }
 .lbl{ display:flex; align-items:center; gap:8px; color:var(--muted) }
 
-.tabs{ display:flex; gap:8px; padding:8px 0; position:sticky; top:0; background:#fff; z-index:1 }
+/* ===== Reports tabs ===== */
 .tabs{
-  overflow-x: auto;   /* allow horizontal scroll if many days */
-  white-space: nowrap;
+  display:flex; gap:8px; padding:8px 0; position:sticky; top:0; background:#fff; z-index:1;
+  overflow-x:auto; white-space:nowrap;
 }
-.tab{ display:inline-block; }
-
-.tab{ border:1px solid var(--line); padding:6px 10px; border-radius:8px; cursor:pointer }
+.tab{ display:inline-block; border:1px solid var(--line); padding:6px 10px; border-radius:8px; cursor:pointer }
 .tab.active{ background:#eef2ff; border-color:#c7d2fe }
 .reports-body{ display:grid; gap:12px }
 .table{ border-collapse:collapse; width:100% }
 .table th, .table td{ border:1px solid var(--line); padding:8px 10px; font-size:14px }
 .table th{ background:#f3f4f6 }
 
-/* ---------- Aesthetics: role colors & polish ---------- */
-:root{
-  --electrical:#3b82f6; /* blue 500 */
-  --plumbing:#06b6d4;   /* cyan 500 */
-  --carpentry:#f59e0b;  /* amber 500 */
-  --demolition:#ef4444; /* red 500 */
-  --civil:#10b981;      /* emerald 500 */
-  --tiling:#8b5cf6;     /* violet 500 */
-  --painting:#db2777;   /* pink 600 */
-  --other:#64748b;      /* slate 500 */
-}
+/* ===== Role-driven styling (palette + tasks) ===== */
 
-/* softer grid look */
-.grid td{ background:#fff; }
-.grid tbody tr:nth-child(odd) td{ background:#fcfcfd; }
-
-/* cards: subtle depth + accent */
-.task{
-  --accent:#e5e7eb; /* default */
-  border-left:5px solid var(--accent);
-  box-shadow:0 4px 10px rgba(0,0,0,.04);
-  background:linear-gradient(0deg, color-mix(in srgb, var(--accent) 6%, #fff), #fff);
-  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
-}
-.task:hover{ transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,.06); }
-
-/* palette tiles to match */
-.pal{
-  --accent:#e5e7eb;
-  border-left:4px solid var(--accent);
-  transition:transform .1s ease, box-shadow .1s ease;
-}
-.pal:hover{ transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,.06); }
-
-/* role chip uses the same accent */
-.task .role, .pal .role{
-  color:var(--accent);
-  background:color-mix(in srgb, var(--accent) 16%, #fff);
-  padding:2px 8px; border-radius:999px; font-weight:600;
-}
-
-/* map roles -> accent color via LOWERCASE data-role */
-.task[data-role="electrical"], .pal[data-role="electrical"]{ --accent:var(--electrical) }
-.task[data-role="plumbing"],   .pal[data-role="plumbing"]  { --accent:var(--plumbing) }
-.task[data-role="carpentry"],  .pal[data-role="carpentry"] { --accent:var(--carpentry) }
-.task[data-role="demolition"], .pal[data-role="demolition"]{ --accent:var(--demolition) }
-.task[data-role="civil"],      .pal[data-role="civil"]     { --accent:var(--civil) }
-.task[data-role="tiling"],     .pal[data-role="tiling"]    { --accent:var(--tiling) }
-.task[data-role="painting"],   .pal[data-role="painting"]  { --accent:var(--painting) }
-.task[data-role="other"],      .pal[data-role="other"]     { --accent:var(--other) }
-
-/* nicer selected state */
-.task.selected{
-  outline:2px solid color-mix(in srgb, var(--accent) 55%, #ffffff);
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 24%, #ffffff) inset;
-}
-
-/* tidy buttons inside tasks */
-.task .edit, .task .x{
-  border-color:color-mix(in srgb, var(--accent) 32%, var(--line));
-}
-
-/* topbar polish (optional) */
-.topbar{ backdrop-filter:saturate(1.3) blur(6px); background:#ffffffd9; }
-
-/* ===== Role colors (tokens for pills/borders; LOWERCASE keys) ===== */
-
-/* sensible defaults if a role isn't mapped */
-:root{
-  --role-default: #64748b;    /* slate */
-  --rolebg-default: #e2e8f0;  /* light slate bg */
-}
-
-/* Give both .pal and .task a default pair of vars */
+/* default tokens applied to both */
 .pal, .task{
   --role-color: var(--role-default);
   --role-bg: var(--rolebg-default);
 }
 
-/* ---- Map each role to a color + soft background (lowercase) ---- */
-.pal[data-role="demolition"],
-.task[data-role="demolition"]{
-  --role-color:#ef4444; /* red */
-  --role-bg:#fee2e2;
-}
-.pal[data-role="civil"],
-.task[data-role="civil"]{
-  --role-color:#10b981; /* green */
-  --role-bg:#d1fae5;
-}
-.pal[data-role="plumbing"],
-.task[data-role="plumbing"]{
-  --role-color:#06b6d4; /* teal */
-  --role-bg:#cffafe;
-}
-.pal[data-role="electrical"],
-.task[data-role="electrical"]{
-  --role-color:#3b82f6; /* blue */
-  --role-bg:#dbeafe;
-}
-.pal[data-role="carpentry"],
-.task[data-role="carpentry"]{
-  --role-color:#f59e0b; /* amber */
-  --role-bg:#fef3c7;
-}
-.pal[data-role="tiling"],
-.task[data-role="tiling"]{
-  --role-color:#8b5cf6; /* violet */
-  --role-bg:#ede9fe;
-}
-.pal[data-role="painting"],
-.task[data-role="painting"]{
-  --role-color:#db2777; /* pink */
-  --role-bg:#fce7f3;
-}
-.pal[data-role="other"],
-.task[data-role="other"]{
-  --role-color:#64748b; /* slate */
-  --role-bg:#e2e8f0;
-}
+/* role -> tokens (lowercase) */
+.pal[data-role="demolition"], .task[data-role="demolition"]{ --role-color:#ef4444; --role-bg:#fee2e2; }
+.pal[data-role="civil"],       .task[data-role="civil"]      { --role-color:#10b981; --role-bg:#d1fae5; }
+.pal[data-role="plumbing"],    .task[data-role="plumbing"]   { --role-color:#06b6d4; --role-bg:#cffafe; }
+.pal[data-role="electrical"],  .task[data-role="electrical"] { --role-color:#3b82f6; --role-bg:#dbeafe; }
+.pal[data-role="carpentry"],   .task[data-role="carpentry"]  { --role-color:#f59e0b; --role-bg:#fef3c7; }
+.pal[data-role="tiling"],      .task[data-role="tiling"]     { --role-color:#8b5cf6; --role-bg:#ede9fe; }
+.pal[data-role="painting"],    .task[data-role="painting"]   { --role-color:#db2777; --role-bg:#fce7f3; }
+.pal[data-role="other"],       .task[data-role="other"]      { --role-color:#64748b; --role-bg:#e2e8f0; }
 
-/* ---- Apply those tokens to the UI elements ---- */
-
-/* Palette: colored left border + colored role pill */
-.pal{
-  border-left:4px solid var(--line);
-}
-.pal[data-role]{
-  border-left-color: var(--role-color);
-}
+/* apply tokens to UI pieces */
+.pal{ border-left:4px solid var(--line); }
+.pal[data-role]{ border-left-color:var(--role-color); }
 .pal .role{
-  background: var(--role-bg);
-  color: var(--role-color);
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 12px;
+  background:var(--role-bg);
+  color:var(--role-color);
+  font-weight:600;
+  padding:2px 6px;
+  border-radius:12px;
 }
 
-/* Grid task chip: colored left border + colored role pill */
-.task{
-  border-left:4px solid var(--line);
-}
-.task[data-role]{
-  border-left-color: var(--role-color);
-}
+.task{ border-left:4px solid var(--line); }
+.task[data-role]{ border-left-color:var(--role-color); }
 .task .role{
-  background: var(--role-bg);
-  color: var(--role-color);
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 12px;
+  background:var(--role-bg);
+  color:var(--role-color);
+  font-weight:600;
+  padding:2px 6px;
+  border-radius:12px;
+}
+
+/* nicer selected state + tidy buttons (color-aware) */
+.task.selected{
+  outline:2px solid color-mix(in srgb, var(--accent) 55%, #ffffff);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 24%, #ffffff) inset;
+}
+.task .edit, .task .x{
+  border-color:color-mix(in srgb, var(--accent) 32%, var(--line));
 }

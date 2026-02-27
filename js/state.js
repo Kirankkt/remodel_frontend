@@ -1,218 +1,195 @@
 // state.js
-export let totalDays = 60;
+export let totalDays = Number(localStorage.getItem('plan_total_days') || 60);
+export function setTotalDays(n) {
+  n = parseInt(n, 10);
+  if (!Number.isFinite(n) || n < 1) n = 60;
+  if (n > 730) n = 730; // cap ~2y
+  totalDays = n;
+  localStorage.setItem('plan_total_days', String(n));
+}
 
-// You can adjust this order to match your sheet
+// Areas
 export const areas = [
-  'Car Park',
-  'Sit out',
-  'Living/Dining Room',
-  'Hallway',
-  'Stairs',
-  'Bedroom 1',
-  'Toilet 1',
-  'Bedroom 2',
-  'Toilet 2',
-  'Veranda',
-  "Maid's Room",
-  "Maid's Toilet",
-  'Kitchen',
-  'Pantry / Work Area',
-  'Back Slab',
-  'Outside Bathroom',
-  'Library',
-  'Conference Area',
-  'New Bedroom 3',
-  'Toilet 3',
-  'Office',
-  'Terrace Patio',
-  'Outside wall',
-  'Parapet wall',
-  'Sunshade',
-  'Yard',
-  'Coumpound wall',
-  'Septic tank construction',
-  'Second floor terrace / Roof',
-  'Waste Removal',
-  'Termite Treatment',
-  'Building Exterior',
-  'Landscaping'
+  'Car Park', 'Sit out', 'Living/Dining Room', 'Hallway', 'Stairs',
+  'Bedroom 1', 'Toilet 1', 'Bedroom 2', 'Toilet 2', 'Veranda',
+  "Maid's Room", "Maid's Toilet", 'Kitchen', 'Pantry / Work Area', 'Back Slab',
+  'Outside Bathroom', 'Library', 'Conference Area', 'New Bedroom 3', 'Toilet 3',
+  'Office', 'Terrace Patio', 'Outside wall', 'Parapet wall', 'Sunshade',
+  'Yard', 'Coumpound wall', 'Septic tank construction', 'Second floor terrace / Roof',
+  'Waste Removal', 'Termite Treatment', 'Building Exterior', 'Landscaping'
 ];
 
-// Palette (use role names that match your CSS color map)
+// Palette
 export const defaultPalette = [
-  { name:"Demolition",  role:"Demolition",  workers:2, hours:8 },
-  { name:"Civil Work",  role:"Civil Work",  workers:3, hours:8 },
-  { name:"Plumbing",    role:"Plumbing",    workers:2, hours:6 },
-  { name:"Electrical",  role:"Electrical",  workers:2, hours:6 },
-  { name:"Carpentry",   role:"Carpentry",   workers:2, hours:8 },
-  { name:"Tiling",      role:"Tiling",      workers:2, hours:8 },
-  { name:"Painting",    role:"Painting",    workers:2, hours:6 },
-  { name:"Other",       role:"Other",       workers:1, hours:1 }
+  { name: "Demolition", role: "Demolition", workers: 2, hours: 8 },
+  { name: "Civil Work", role: "Civil Work", workers: 3, hours: 8 },
+  { name: "Plumbing", role: "Plumbing", workers: 2, hours: 6 },
+  { name: "Electrical", role: "Electrical", workers: 2, hours: 6 },
+  { name: "Carpentry", role: "Carpentry", workers: 2, hours: 8 },
+  { name: "Tiling", role: "Tiling", workers: 2, hours: 8 },
+  { name: "Painting", role: "Painting", workers: 2, hours: 6 },
+  { name: "Other", role: "Other", workers: 1, hours: 1 }
 ];
 
-// ---------- Settings (persisted locally) ----------
+// ---------- Settings ----------
 const LS_SETTINGS = "app_settings";
-export const settings = {
-  apiBase: "",
-  apiKey: "",
-  planId: "default",
-};
-export function loadSettings(){
-  try{
-    const s = JSON.parse(localStorage.getItem(LS_SETTINGS)||"{}");
-    Object.assign(settings, s||{});
-  }catch{}
-}
-export function saveSettings(){ localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+// default apiBase is empty to avoid accidental calls
+export const settings = { apiBase: "", apiKey: "", planId: "default", token: "" };
 
-// ---------- History (Undo/Redo) ----------
+export function loadSettings() {
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(LS_SETTINGS) || "{}") || {}); }
+  catch { }
+}
+export function saveSettings() { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+
+export function applySettingsFromQuery() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const api = q.get('apiBase') || q.get('api');
+    const key = q.get('apiKey') || q.get('key');
+    const plan = q.get('plan') || q.get('p');
+    const tok = q.get('t') || q.get('token') || q.get('edit');
+    let touched = false;
+    if (api) { settings.apiBase = api.replace(/\/+$/, ''); touched = true; }
+    if (key) { settings.apiKey = key; touched = true; }
+    if (plan) { settings.planId = plan; touched = true; }
+    if (tok) { settings.token = tok; touched = true; }
+    if (touched) saveSettings();
+  } catch { }
+}
+
+// ---------- History ----------
 const MAX_HISTORY = 40;
-const history = { stack:[], idx:-1 };
-
-export function seedHistory(snapshotFn){
-  const snap = snapshotFn(); history.stack=[snap]; history.idx=0;
-}
-export function pushHistory(snapshotFn){
-  // drop future
-  if (history.idx < history.stack.length-1) history.stack = history.stack.slice(0, history.idx+1);
-  const snap = snapshotFn();
-  history.stack.push(snap);
+const history = { stack: [], idx: -1 };
+export function seedHistory(snapshotFn) { const s = snapshotFn(); history.stack = [s]; history.idx = 0; }
+export function pushHistory(snapshotFn) {
+  if (history.idx < history.stack.length - 1) history.stack = history.stack.slice(0, history.idx + 1);
+  const s = snapshotFn(); history.stack.push(s);
   if (history.stack.length > MAX_HISTORY) history.stack.shift();
   history.idx = history.stack.length - 1;
 }
-export function canUndo(){ return history.idx > 0; }
-export function canRedo(){ return history.idx < history.stack.length-1; }
-export function undo(){ if (!canUndo()) return null; history.idx--; return history.stack[history.idx]; }
-export function redo(){ if (!canRedo()) return null; history.idx++; return history.stack[history.idx]; }
+export function canUndo() { return history.idx > 0; }
+export function canRedo() { return history.idx < history.stack.length - 1; }
+export function undo() { if (!canUndo()) return null; history.idx--; return history.stack[history.idx]; }
+export function redo() { if (!canRedo()) return null; history.idx++; return history.stack[history.idx]; }
 
-// ---------- Encode / decode a task to a JSON string ----------
-export function encodeTaskString(t){
-  // Keep a verbose JSON form that the backend already understands.
+// ---------- Task encode/decode ----------
+export function encodeTaskString(t) {
   return JSON.stringify({
-    name: String(t.name ?? ''),
-    role: String(t.role ?? ''),
+    name: String(t.name ?? ''), role: String(t.role ?? ''),
     workers: Number.isFinite(+t.workers) ? +t.workers : 0,
     hours: Number.isFinite(+t.hours) ? +t.hours : 0,
-
-    // extra fields we use in UI (kept if present)
-    crew: t.crew || '',
-    materials: t.materials || '',
-    vendor: t.vendor || '',
+    crew: t.crew || '', materials: t.materials || '', vendor: t.vendor || '',
     cost: Number.isFinite(+t.cost) ? +t.cost : 0,
-    ordered: !!t.ordered,
-    delivered: !!t.delivered,
-    orderDue: t.orderDue || '',
-    deliveryDue: t.deliveryDue || '',
-
-    // unified done flag
+    ordered: !!t.ordered, delivered: !!t.delivered,
+    orderDue: t.orderDue || '', deliveryDue: t.deliveryDue || '',
+    progress: (Number.isFinite(+t.progress)
+      ? Math.max(0, Math.min(100, +t.progress))
+      : (Number.isFinite(+t.p) ? Math.max(0, Math.min(100, +t.p)) : 0)),
     done: !!t.done
   });
 }
-
-export function decodeTaskString(s){
-  // Accept either a plain string or a JSON-encoded task (compact or verbose)
+export function decodeTaskString(s) {
   if (typeof s !== 'string') {
-    try {
-      const t = s || {};
-      return _normalizeTaskObject(t);
-    } catch {
-      return { name: String(s||''), role:'', workers:0, hours:0, done:false };
-    }
+    try { return _normalizeTaskObject(s || {}); }
+    catch { return { name: String(s || ''), role: '', workers: 0, hours: 0, done: false }; }
   }
-
-  // Try JSON parse first; if it fails, it's just a plain name string
-  try {
-    const t = JSON.parse(s);
-    return _normalizeTaskObject(t);
-  } catch {
-    return { name: String(s||''), role:'', workers:0, hours:0, done:false };
-  }
+  try { return _normalizeTaskObject(JSON.parse(s)); }
+  catch { return { name: String(s || ''), role: '', workers: 0, hours: 0, done: false }; }
 }
-
-// helper: unify verbose & compact keys into the shape used by the UI
-function _normalizeTaskObject(t){
+function _normalizeTaskObject(t) {
   const name = t.name ?? t.task ?? t.n ?? '';
   const role = t.role ?? t.r ?? '';
-
   const workers = Number.isFinite(+t.workers) ? +t.workers : (Number.isFinite(+t.w) ? +t.w : 0);
-  const hours   = Number.isFinite(+t.hours)   ? +t.hours   : (Number.isFinite(+t.h) ? +t.h : 0);
-
-  // done can be in any of these compact flags written by checklist
+  const hours = Number.isFinite(+t.hours) ? +t.hours : (Number.isFinite(+t.h) ? +t.h : 0);
   const done = !!(t.done || t.d === true || t.x === true || t.dd === true);
-
   return {
-    name,
-    role,
-    workers,
-    hours,
-    crew: t.crew || '',
-    materials: t.materials || '',
-    vendor: t.vendor || '',
+    name, role, workers, hours,
+    crew: t.crew || '', materials: t.materials || '', vendor: t.vendor || '',
     cost: Number.isFinite(+t.cost) ? +t.cost : 0,
-    ordered: !!(t.ordered || t.o),
-    delivered: !!(t.delivered || t.di),
-    orderDue: t.orderDue || '',
-    deliveryDue: t.deliveryDue || '',
-    done
+    ordered: !!(t.ordered || t.o), delivered: !!(t.delivered || t.di),
+    orderDue: t.orderDue || '', deliveryDue: t.deliveryDue || '', done
   };
 }
 
-// ---------- Project dates ----------
-export function fmtDate(d){
-  return d ? d.toLocaleDateString(undefined,{day:"2-digit",month:"short"}) : "";
+// ---------- Dates ----------
+// --- Dates (holiday aware) ---
+export function fmtDate(d) {
+  return d ? d.toLocaleDateString(undefined, { day: "2-digit", month: "short" }) : "";
 }
-export function dateForDay(day){
-  const start = localStorage.getItem("project_start_date")||"";
+
+// Fixed holidays to skip (MM-DD)
+export const HOLIDAYS = new Set(["12-24", "12-25", "12-26", "12-31", "01-01", "03-03", "03-20", "04-03", "04-15", "05-01", "05-27"]);
+
+export function dateForDay(day) {
+  const start = localStorage.getItem("project_start_date") || ""; // "YYYY-MM-DD"
   if (!start) return null;
-  const [y,m,d] = start.split("-").map(Number);
-  const dt = new Date(y, m-1, d);
-  dt.setDate(dt.getDate() + (day-1));
+  const [y, m, d] = start.split("-").map(Number);
+  let dt = new Date(y, m - 1, d);
+  let remain = Math.max(0, day - 1);
+  while (remain > 0) {
+    dt.setDate(dt.getDate() + 1);
+    const mmdd = String(dt.getMonth() + 1).padStart(2, '0') + "-" + String(dt.getDate()).padStart(2, '0');
+    if (dt.getDay() === 0) continue;       // skip Sundays
+    if (HOLIDAYS.has(mmdd)) continue;      // skip fixed holidays
+    remain--;
+  }
   return dt;
 }
 
-// ---------- Backend persistence ----------
-function header(){
-  const h = { "Content-Type": "application/json" };
-  if (settings.apiKey) h["X-API-Key"] = settings.apiKey;
-  return h;
-}
+export function getWorkingDaysLeft(endDateStr) {
+  if (!endDateStr) return 0;
 
-export async function persist(snapshot){
-  // always cache locally so UI never blocks
-  localStorage.setItem("grid", JSON.stringify(snapshot || {}));
+  // Parse end date (expected format YYYY-MM-DD)
+  const dtParts = endDateStr.split('-');
+  if (dtParts.length !== 3) return 0;
 
-  // no server configured? just return
-  if (!settings.apiBase || !settings.planId) return;
+  const end = new Date(parseInt(dtParts[0], 10), parseInt(dtParts[1], 10) - 1, parseInt(dtParts[2], 10));
+  // ensure start of day for comparison
+  end.setHours(0, 0, 0, 0);
 
-  try {
-    // FastAPI expects: {"cells":[{area, day, activities}], "allow_multiple": bool}
-    const payload = {
-      cells: (snapshot?.cells || []).map(c => ({
-        area: c.area,
-        day: Number(c.day),
-        activities: Array.isArray(c.activities) ? c.activities : []
-      })),
-      allow_multiple: !!snapshot?.allowMultiple
-    };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    const res = await fetch(
-      `${settings.apiBase}/plans/${encodeURIComponent(settings.planId)}/grid`,
-      { method: "PUT", headers: header(), body: JSON.stringify(payload) }
-    );
+  if (today >= end) return 0; // It's past the end date
 
-    if (!res.ok) {
-      const txt = await res.text().catch(()=> "");
-      throw new Error(`Persist failed ${res.status}: ${txt}`);
+  let workDays = 0;
+  let curr = new Date(today);
+
+  while (curr < end) {
+    curr.setDate(curr.getDate() + 1);
+    const mmdd = String(curr.getMonth() + 1).padStart(2, '0') + "-" + String(curr.getDate()).padStart(2, '0');
+    if (curr.getDay() !== 0 && !HOLIDAYS.has(mmdd)) {
+      workDays++;
     }
-  } catch (e) {
-    console.warn("Persist error:", e);
   }
+
+  return workDays;
 }
 
-export function persistNoHistory(snapshotFn){
-  // call persist with the live snapshot
-  persist(snapshotFn());
+
+// ---------- Backend helpers (read-only here) ----------
+function normalizedBase() { return (settings.apiBase || '').replace(/\/+$/, ''); }
+function queryWithToken() { return settings.token ? `?t=${encodeURIComponent(settings.token)}` : ""; }
+
+// IMPORTANT: local-only persistence (no server writes here)
+export function persist(snapshot) {
+  localStorage.setItem("grid", JSON.stringify(snapshot || {}));
 }
 
-// keep this
-export function initState(){ loadSettings(); }
+// Helper used throughout UI to autosave locally without history push
+export function persistNoHistory(snapshotFn) { persist(snapshotFn()); }
+
+// Pull latest grid from server (does not write back)
+export async function pullLatest() {
+  if (!settings.apiBase || !settings.planId) throw new Error('Missing Settings');
+  const res = await fetch(`${normalizedBase()}/plans/${encodeURIComponent(settings.planId)}/grid${queryWithToken()}`);
+  if (!res.ok) throw new Error(`Pull failed ${res.status}`);
+  const data = await res.json(); // {allowMultiple, cells, start_date?}
+  const snap = { allowMultiple: !!data.allowMultiple, cells: data.cells || [] };
+  localStorage.setItem('grid', JSON.stringify(snap));
+  return snap;
+}
+
+// Boot
+export function initState() { loadSettings(); applySettingsFromQuery(); }

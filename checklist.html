@@ -1,124 +1,532 @@
 <!doctype html>
-<html>
+<html lang="en">
+
 <head>
-  <meta charset="utf-8">
-  <title>Checklist</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Checklist — Remodeling Planner</title>
+  <link rel="stylesheet" href="styles.css" />
   <style>
-    body{font-family:Inter,system-ui,Arial;margin:20px;}
-    .top{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
-    .day{margin:18px 0;}
-    table{width:100%;border-collapse:collapse}
-    th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}
-    th{background:#f3f4f6}
-    .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer}
-    .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
-    .muted{color:#6b7280}
+    body {
+      font-family: Inter, system-ui, Arial;
+      margin: 0;
+      padding: 16px;
+      background: #f8fafc;
+      color: #0f172a
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 12px
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      text-decoration: none;
+      cursor: pointer
+    }
+
+    .btn.secondary {
+      background: #e5e7eb;
+      color: #111827
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .badge {
+      background: #eef2ff;
+      color: #3730a3;
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px
+    }
+
+    .chip {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px
+    }
+
+    h2 {
+      font-size: 20px;
+      margin: 8px 0 6px
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 4px 0 10px
+    }
+
+    th,
+    td {
+      border: 1px solid #e5e7eb;
+      padding: 8px
+    }
+
+    th {
+      background: #f3f4f6;
+      text-align: left
+    }
+
+    .num {
+      width: 64px;
+      text-align: right
+    }
+
+    .right {
+      text-align: right
+    }
+
+    .slider {
+      width: 160px
+    }
+
+    .muted {
+      color: #6b7280
+    }
+
+    .day-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      margin: 14px 0;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, .04)
+    }
+
+    .extras-section h4 {
+      margin: 16px 0 8px
+    }
+
+    .savebar {
+      position: sticky;
+      bottom: 12px;
+      display: flex;
+      justify-content: flex-end
+    }
+
+    .nav label {
+      font-size: 12px
+    }
+
+    .nav input {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      padding: 0 8px
+    }
   </style>
 </head>
+
 <body>
+
   <div class="top">
-    <h2 id="title" style="margin:0">Checklist</h2>
-    <button id="saveBtn" class="btn primary">Save progress</button>
-    <span id="msg" class="muted"></span>
+    <div class="meta">
+      <a id="backLink" class="btn secondary" href="./">← Back to Planner UI</a>
+      <span id="planBadge" class="badge">Plan: default</span>
+      <span id="rangeBadge" class="chip">Days</span>
+      <span id="checklistDaysRemaining" class="badge"
+        style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5;"></span>
+
+      <!-- NEW: quick day navigator -->
+      <div class="nav" style="display:flex;align-items:center;gap:8px;margin-left:8px">
+        <label class="muted" for="jumpDay">Start day</label>
+        <input id="jumpDay" type="number" min="1" step="1" style="width:90px">
+        <label class="muted" for="jumpSpan">Span</label>
+        <input id="jumpSpan" type="number" min="1" step="1" style="width:70px">
+        <button id="jumpBtn" class="btn secondary" type="button">Go</button>
+      </div>
+    </div>
+    <div class="savebar">
+      <button id="saveBtn" class="btn">Save progress</button>
+    </div>
   </div>
-  <div id="wrap"></div>
 
-<script>
-(async function(){
-  const qs = new URLSearchParams(location.search);
-  const plan   = qs.get('plan') || 'default';
-  const start  = Number(qs.get('startDay') || '1');
-  const days   = Number(qs.get('days') || '3');
-  const token  = qs.get('t') || '';   // CHECK_TOKEN if present
-  const api    = (localStorage.getItem('apiBase')) || 'https://web-production-f116.up.railway.app';
+  <div id="content"></div>
 
-  document.getElementById('title').textContent = `Checklist — Day ${start} to ${start+days-1}`;
+  <script>
+    // ------------- helpers -------------
+    const qs = Object.fromEntries(new URLSearchParams(location.search).entries());
+    const apiBase = (qs.api || '').replace(/\/+$/, '');
+    const planId = qs.plan || 'default';
+    const token = qs.t || '';
+    const startDay = Math.max(1, parseInt(qs.startDay || '1', 10));
+    const span = Math.max(1, parseInt(qs.days || '3', 10));
+    const endDay = startDay + span - 1;
 
-  // fetch grid
-  const grid = await fetch(`${api}/plans/${encodeURIComponent(plan)}/grid`).then(r=>r.json());
+    document.getElementById('planBadge').textContent = `Plan: ${planId}`;
+    document.getElementById('rangeBadge').textContent = `Days ${startDay}-${endDay}`;
+    document.getElementById('backLink').href = './index.html' + location.search;
 
-  // index cells by (area,day)
-  const byKey = new Map();
-  for (const c of grid.cells||[]) byKey.set(`${c.area}__${c.day}`, c);
-
-  const wrap = document.getElementById('wrap');
-  wrap.innerHTML = '';
-
-  for (let d = start; d < start+days; d++){
-    const dayDiv = document.createElement('div');
-    dayDiv.className = 'day';
-    dayDiv.innerHTML = `<h3 style="margin:0 0 8px 0">Day ${d}</h3>`;
-    const tbl = document.createElement('table');
-    tbl.innerHTML = `<thead><tr><th>Done</th><th>Area</th><th>Task</th><th>Role</th><th>Workers</th><th>Hours</th></tr></thead><tbody></tbody>`;
-    const tbody = tbl.querySelector('tbody');
-
-    // build rows from every area present in grid
-    const areas = [...new Set(grid.cells.map(c=>c.area))].sort();
-    for (const area of areas){
-      const cell = byKey.get(`${area}__${d}`) || {activities:[]};
-      const acts = cell.activities || [];
-      if (!acts.length){
-        // show a gray empty row for visibility
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td></td><td>${esc(area)}</td><td class="muted" colspan="4">No tasks</td>`;
-        tbody.appendChild(tr);
-        continue;
+    // Days Remaining calculation for Checklist
+    (function updateChecklistDaysRemaining() {
+      const el = document.getElementById('checklistDaysRemaining');
+      if (!el) return;
+      const endStr = localStorage.getItem('project_end_date');
+      if (!endStr) {
+        el.style.display = 'none';
+        return;
       }
-      acts.forEach((raw, idx)=>{
-        let t={}; try{ t = typeof raw==='string'? JSON.parse(raw) : raw }catch(_){}
-        const name = t.name || t.n || String(raw);
-        const role = t.role || t.r || '';
-        const w    = t.workers ?? t.w ?? 0;
-        const h    = t.hours   ?? t.h ?? 0;
-        const done = Boolean(t.done || t.d || t.x || t.dd);
+      const HOLIDAYS = new Set(["12-24", "12-25", "12-26", "12-31", "01-01", "03-03", "03-20", "04-03", "04-15", "05-01", "05-27"]);
+      const dtParts = endStr.split('-');
+      if (dtParts.length !== 3) return;
 
+      const end = new Date(parseInt(dtParts[0], 10), parseInt(dtParts[1], 10) - 1, parseInt(dtParts[2], 10));
+      end.setHours(0, 0, 0, 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (today >= end) {
+        el.textContent = '⏳ 0 Working Days Left';
+        el.style.display = 'inline-block';
+        return;
+      }
+
+      let workDays = 0;
+      let curr = new Date(today);
+      while (curr < end) {
+        curr.setDate(curr.getDate() + 1);
+        const mmdd = String(curr.getMonth() + 1).padStart(2, '0') + "-" + String(curr.getDate()).padStart(2, '0');
+        if (curr.getDay() !== 0 && !HOLIDAYS.has(mmdd)) {
+          workDays++;
+        }
+      }
+      el.textContent = `⏳ ${workDays} Working Days Left`;
+      el.style.display = 'inline-block';
+    })();
+
+    // Wire day navigator
+    const jumpDayEl = document.getElementById('jumpDay');
+    const jumpSpanEl = document.getElementById('jumpSpan');
+    jumpDayEl.value = startDay;
+    jumpSpanEl.value = span;
+    document.getElementById('jumpBtn').addEventListener('click', () => {
+      const d = Math.max(1, parseInt(jumpDayEl.value || '1', 10));
+      const s = Math.max(1, parseInt(jumpSpanEl.value || '3', 10));
+      const params = new URLSearchParams(location.search);
+      params.set('startDay', String(d));
+      params.set('days', String(s));
+      location.search = params.toString();
+    });
+
+    async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+    async function postJSON(url, body, hdrs = {}) {
+      const headers = { 'Content-Type': 'application/json', ...hdrs };
+      const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      if (!r.ok) { throw new Error(await r.text()); }
+      return r.json();
+    }
+    async function putJSON(url, body, hdrs = {}) {
+      const headers = { 'Content-Type': 'application/json', ...hdrs };
+      const r = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(body) });
+      if (!r.ok) { throw new Error(await r.text()); }
+      return r.json();
+    }
+
+    function normTask(raw) {
+      try { var t = (typeof raw === 'string') ? JSON.parse(raw) : { ...raw }; }
+      catch { return { name: String(raw), role: '', workers: 0, hours: 0, done: false, progress: 0 }; }
+      const name = t.name || t.task || t.n || '';
+      const role = t.role || t.r || '';
+      const workers = Number(t.workers ?? t.w ?? 0) || 0;
+      const hours = Number(t.hours ?? t.h ?? 0) || 0;
+      const done = !!(t.done || t.d || t.x || t.dd);
+      const progress = Math.min(100, Math.max(0, Number(t.progress ?? 0) || 0));
+      return { name, role, workers, hours, done, progress };
+    }
+
+    // ------------- render main table(s) -------------
+    const content = document.getElementById('content');
+
+    // store references for save
+    const rowsState = []; // {area, day, index, els:{workers, hours, progress, done}}
+    function addRowRef(area, day, index, els) { rowsState.push({ area, day, index, els }); }
+
+    function buildDaySection(day, rows) {
+      const card = document.createElement('div');
+      card.className = 'day-card';
+
+      const h = document.createElement('h2');
+      h.textContent = `Day ${day}`;
+      card.appendChild(h);
+
+      const tbl = document.createElement('table');
+      tbl.innerHTML = `
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Task</th>
+          <th>Role</th>
+          <th style="width:88px">Workers</th>
+          <th style="width:88px">Hours</th>
+          <th style="width:220px">Progress</th>
+          <th style="width:70px">Done</th>
+          <th style="width:120px">Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+      card.appendChild(tbl);
+      const tb = tbl.querySelector('tbody');
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const t = normTask(r.task);
+        const progId = `p_${day}_${r.index}_${Math.random().toString(36).slice(2, 6)}`;
+
+        tr.innerHTML = `
+        <td>${r.area}</td>
+        <td>${t.name || '<span class="muted">—</span>'}</td>
+        <td>${t.role || ''}</td>
+        <td><input class="i-workers num" type="number" step="1" value="${t.workers}"></td>
+        <td><input class="i-hours   num" type="number" step="0.5" value="${t.hours}"></td>
+        <td>
+          <input id="${progId}" class="i-progress slider" type="range" min="0" max="100" step="5" value="${t.progress}">
+          <span class="muted pval">${t.progress}%</span>
+        </td>
+        <td class="right"><input class="i-done" type="checkbox" ${t.done ? 'checked' : ''}></td>
+        <td class="right">
+          <button class="i-move btn secondary" type="button" title="Move to another day">Move</button>
+        </td>
+      `;
+        tb.appendChild(tr);
+
+        const elW = tr.querySelector('.i-workers');
+        const elH = tr.querySelector('.i-hours');
+        const elP = tr.querySelector('.i-progress');
+        const elD = tr.querySelector('.i-done');
+        const pval = tr.querySelector('.pval');
+
+        // If slider hits 100, tick Done; if slider <100, clear Done (UX sugar)
+        elP.addEventListener('input', () => {
+          pval.textContent = elP.value + '%';
+          if (+elP.value >= 100) elD.checked = true;
+          if (+elP.value < 100 && elD.checked) elD.checked = false;
+        });
+
+        // NEW: Move handler (uses /ops/move_task)
+        const elMove = tr.querySelector('.i-move');
+        elMove.addEventListener('click', async () => {
+          const dst = prompt('Move this task to which Day? (number)', String(day));
+          if (!dst) return;
+          const dstDay = parseInt(dst, 10);
+          if (!(dstDay >= 1)) { alert('Invalid day'); return; }
+
+          try {
+            const hdr = token ? { 'X-Edit-Token': token } : {};
+            const opsBaseLocal = `${apiBase}/ops`;
+            await postJSON(`${opsBaseLocal}/move_task?token=${encodeURIComponent(token)}`, {
+              plan_id: planId,
+              src_area: r.area,
+              src_day: day,
+              index: r.index,
+              dst_day: dstDay
+              // keep_progress default True on server
+            }, hdr);
+
+            location.reload(); // refresh after move
+          } catch (e) {
+            alert('Move failed: ' + e.message);
+          }
+        });
+
+        addRowRef(r.area, day, r.index, { workers: elW, hours: elH, progress: elP, done: elD });
+      });
+
+      // mount Extras section right after table
+      const extrasMount = document.createElement('div');
+      card.appendChild(extrasMount);
+      renderExtras(extrasMount, day, planId, apiBase, token);
+
+      content.appendChild(card);
+    }
+
+    async function loadAndRender() {
+      const grid = await getJSON(`${apiBase}/plans/${encodeURIComponent(planId)}/grid`);
+      const items = [];
+      for (const c of (grid.cells || [])) {
+        if (c.day < startDay || c.day > endDay) continue;
+        (c.activities || []).forEach((s, i) => {
+          items.push({ area: c.area, day: c.day, index: i, task: s });
+        });
+      }
+      // group by day
+      const byDay = new Map();
+      for (const it of items) {
+        if (!byDay.has(it.day)) byDay.set(it.day, []);
+        byDay.get(it.day).push(it);
+      }
+      for (let d = startDay; d <= endDay; d++) {
+        buildDaySection(d, byDay.get(d) || []);
+      }
+    }
+
+    // ------------- save actions -------------
+    async function saveAll() {
+      const whPayload = { plan_id: planId, items: [] };
+      const progPayload = { plan_id: planId, items: [] };
+      const markPayload = { plan_id: planId, updates: [] };
+
+      rowsState.forEach(r => {
+        const w = r.els.workers.valueAsNumber || 0;
+        const h = r.els.hours.valueAsNumber || 0;
+        const p = r.els.progress.valueAsNumber || 0;
+        const d = !!r.els.done.checked;
+
+        whPayload.items.push({ area: r.area, day: r.day, index: r.index, workers: w, hours: h });
+        progPayload.items.push({ area: r.area, day: r.day, index: r.index, progress: p });
+
+        // send explicit done/undone so rollovers behave
+        if (d) {
+          markPayload.updates.push({ area: r.area, day: r.day, done: [r.index], undone: [] });
+        } else {
+          markPayload.updates.push({ area: r.area, day: r.day, done: [], undone: [r.index] });
+        }
+      });
+
+      const hdr = token ? { 'X-Edit-Token': token } : {};
+      const opsBase = `${apiBase}/ops`;
+
+      // Save workers/hours
+      if (whPayload.items.length) {
+        await postJSON(`${opsBase}/checklist_update_fields?token=${encodeURIComponent(token)}`, whPayload, hdr);
+      }
+      // Save progress
+      if (progPayload.items.length) {
+        await postJSON(`${opsBase}/checklist_update_progress?token=${encodeURIComponent(token)}`, progPayload, hdr);
+      }
+      // Save done/undone flags
+      if (markPayload.updates.length) {
+        await postJSON(`${opsBase}/checklist_mark?token=${encodeURIComponent(token)}`, markPayload, hdr);
+      }
+
+      alert('Saved!');
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      saveAll().catch(e => alert('Save failed: ' + e.message));
+    });
+
+    // ------------- Extras (Items & Costs) UI -------------
+    async function renderExtras(mount, day, planId, apiBase, token) {
+      mount.className = 'extras-section';
+      mount.innerHTML = `
+      <h4>Items &amp; Costs — Day ${day}</h4>
+      <div class="extras-wrap">
+        <table class="extras-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="right">Qty</th>
+              <th class="right">Rate</th>
+              <th class="right">Amount</th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:10px">
+          <div>
+            <button type="button" class="extras-add btn secondary">+ Add row</button>
+          </div>
+          <div style="margin-left:auto;font-weight:600">Total: <span class="extras-total">0</span></div>
+          <button type="button" class="extras-save btn">Save items</button>
+        </div>
+      </div>
+    `;
+
+      const tbody = mount.querySelector('tbody');
+      const totalEl = mount.querySelector('.extras-total');
+
+      const getUrl = `${apiBase}/plans/${encodeURIComponent(planId)}/extras?day=${day}`;
+      const putUrl = `${apiBase}/plans/${encodeURIComponent(planId)}/extras?day=${day}`;
+
+      // load existing
+      let rows = [];
+      try { rows = await getJSON(getUrl); if (!Array.isArray(rows)) rows = []; }
+      catch { rows = []; }
+
+      function addRow(r = { item: '', qty: 0, rate: 0, amount: 0 }) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><input type="checkbox" data-area="${esc(area)}" data-day="${d}" data-idx="${idx}" ${done?'checked':''}></td>
-          <td>${esc(area)}</td>
-          <td>${esc(name)}</td>
-          <td>${esc(role)}</td>
-          <td>${w}</td>
-          <td>${h}</td>`;
+        <td><input class="x-item" value="${r.item ?? ''}" style="width:100%"></td>
+        <td class="right"><input class="x-qty" type="number" step="0.01" value="${r.qty ?? 0}" style="width:100px;text-align:right"></td>
+        <td class="right"><input class="x-rate" type="number" step="0.01" value="${r.rate ?? 0}" style="width:100px;text-align:right"></td>
+        <td class="right"><span class="x-amt">${(Number(r.amount ?? r.qty * r.rate) || 0).toFixed(2)}</span></td>
+        <td class="right"><button type="button" class="x-del" title="Delete">×</button></td>
+      `;
         tbody.appendChild(tr);
+        wireRow(tr);
+      }
+
+      function recalc() {
+        let tot = 0;
+        tbody.querySelectorAll('tr').forEach(tr => {
+          const qty = Number(tr.querySelector('.x-qty').value) || 0;
+          const rate = Number(tr.querySelector('.x-rate').value) || 0;
+          const amt = qty * rate;
+          tr.querySelector('.x-amt').textContent = amt.toFixed(2);
+          tot += amt;
+        });
+        totalEl.textContent = tot.toFixed(2);
+      }
+
+      function wireRow(tr) {
+        tr.querySelector('.x-qty').addEventListener('input', recalc);
+        tr.querySelector('.x-rate').addEventListener('input', recalc);
+        tr.querySelector('.x-del').addEventListener('click', () => { tr.remove(); recalc(); });
+      }
+
+      if (rows.length === 0) addRow();
+      rows.forEach(addRow);
+      recalc();
+
+      mount.querySelector('.extras-add').addEventListener('click', () => addRow());
+
+      mount.querySelector('.extras-save').addEventListener('click', async () => {
+        const items = Array.from(tbody.querySelectorAll('tr')).map(tr => ({
+          item: tr.querySelector('.x-item').value.trim(),
+          qty: Number(tr.querySelector('.x-qty').value) || 0,
+          rate: Number(tr.querySelector('.x-rate').value) || 0
+          // amount is computed server-side
+        }));
+        const headers = token ? { 'X-Edit-Token': token } : {};
+        try {
+          await putJSON(putUrl, { items }, headers);
+          recalc();
+        } catch (e) {
+          alert('Save items failed: ' + e.message);
+        }
       });
     }
-    dayDiv.appendChild(tbl);
-    wrap.appendChild(dayDiv);
-  }
 
-  document.getElementById('saveBtn').addEventListener('click', async ()=>{
-    const msg = document.getElementById('msg');
-    msg.textContent = 'Saving...';
-    const checks = [...document.querySelectorAll('input[type=checkbox][data-idx]')];
-
-    // group by cell (area,day)
-    const map = new Map();
-    for (const cb of checks){
-      const area = cb.dataset.area, day = Number(cb.dataset.day), idx = Number(cb.dataset.idx);
-      const key = `${area}__${day}`;
-      if (!map.has(key)) map.set(key, {area, day, done:[], undone:[]});
-      (cb.checked ? map.get(key).done : map.get(key).undone).push(idx);
+    // ------------- init -------------
+    if (!apiBase) {
+      content.innerHTML = `<div class="muted">Add <b>?api=...</b> to the URL.</div>`;
+    } else {
+      loadAndRender().catch(e => content.innerHTML = `<div style="color:#b91c1c">${e.message}</div>`);
     }
-    const updates = [...map.values()];
-
-    try{
-      const res = await fetch(`${api}/ops/checklist_mark?token=${encodeURIComponent(token)}`,{
-        method:'POST',
-        headers:{'content-type':'application/json'},
-        body: JSON.stringify({ plan_id: plan, updates })
-      });
-      if (!res.ok) throw new Error(await res.text());
-      msg.textContent = 'Saved ✓';
-      setTimeout(()=> msg.textContent = '', 1500);
-    }catch(e){
-      msg.textContent = 'Save failed: ' + (e.message||e);
-    }
-  });
-
-  function esc(s){ return String(s||'').replace(/[&<>]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
-})();
-</script>
+  </script>
 </body>
+
 </html>

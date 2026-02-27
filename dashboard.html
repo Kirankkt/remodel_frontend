@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard — Remodeling Planner</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    :root {
+      --bg: #f7f7fb;
+      --card: #fff;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --axis: #374151;
+      --grid: #eef2f7;
+      --role-demolition: #ef4444;
+      --role-civil: #8b5cf6;
+      --role-plumbing: #06b6d4;
+      --role-electrical: #f59e0b;
+      --role-carpentry: #10b981;
+      --role-tiling: #3b82f6;
+      --role-painting: #a855f7;
+      --role-cleaning: #94a3b8;
+      --role-other: #9ca3af;
+    }
+
+    body {
+      padding: 16px;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #111
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap
+    }
+
+    .top h2 {
+      margin: 0 8px 0 0
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid #ddd;
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer
+    }
+
+    .btn:active {
+      transform: translateY(1px)
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px
+    }
+
+    .bar-legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 10px 0 0 0
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .sw {
+      width: 14px;
+      height: 8px;
+      border-radius: 4px;
+      display: inline-block
+    }
+
+    .muted {
+      color: var(--muted)
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .pill {
+      font-size: 12px;
+      background: #eef2ff;
+      color: #1e3a8a;
+      padding: 4px 8px;
+      border-radius: 999px
+    }
+
+    #ganttWrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    input[type="number"] {
+      width: 80px;
+      padding: 6px 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff
+    }
+  </style>
+</head>
+
+<body>
+  <div class="top">
+    <h2>Dashboard</h2>
+    <span id="metaPlan" class="pill"></span>
+    <span id="metaSpan" class="pill"></span>
+    <span id="metaStart" class="pill"></span>
+    <a id="toPlanner" class="btn" href="./">← Back to Planner</a>
+  </div>
+
+  <div class="toolbar">
+    <button id="refreshBtn" class="btn">Refresh</button>
+    <label><input id="autoRefresh" type="checkbox" /> Auto-refresh</label>
+    <label>Start day <input id="fromDay" type="number" min="1" value="1" /></label>
+    <label>Span (days) <input id="spanDays" type="number" min="7" value="30" /></label>
+    <button id="applyView" class="btn">Apply view</button>
+  </div>
+
+  <div id="ganttWrap" class="card">
+    <!-- SVG Gantt will be injected here -->
+    <div class="muted" style="padding:12px">Loading…</div>
+  </div>
+
+  <div class="bar-legend">
+    <div class="legend-item"><span class="sw" style="background:var(--role-demolition)"></span>Demolition</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-civil)"></span>Civil</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-plumbing)"></span>Plumbing</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-electrical)"></span>Electrical</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-carpentry)"></span>Carpentry</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-tiling)"></span>Tiling</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-painting)"></span>Painting</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-cleaning)"></span>Cleaning</div>
+    <div class="legend-item"><span class="sw" style="background:var(--role-other)"></span>Other</div>
+  </div>
+
+  <script type="module">
+    // --- Query ---
+    const qs = new URLSearchParams(location.search);
+    const api = (qs.get('api') || '').replace(/\/+$/, '');
+    const plan = qs.get('plan') || 'default';
+    const token = qs.get('t') || '';
+    document.getElementById('toPlanner').href = './index.html' + (location.search || '');
+    document.getElementById('metaPlan').textContent = `Plan: ${plan}`;
+
+    // --- Role normalization & colors (matches planner) ---
+    function roleKey(r) {
+      const s = String(r || '').trim().toLowerCase();
+      const MAP = {
+        'demolition': 'demolition', 'civil work': 'civil', 'civil': 'civil', 'plumbing': 'plumbing',
+        'carpentry': 'carpentry', 'tiling': 'tiling', 'painting': 'painting', 'electrical': 'electrical',
+        'cleaning': 'cleaning', 'other': 'other',
+        // aliases
+        'plumbing work': 'plumbing', 'electric work': 'electrical', 'electical': 'electrical',
+        'electric work, solar': 'electrical', 'tiiles': 'tiling', 'glass work': 'other',
+        'metal work': 'other', 'metal and roofing work': 'other',
+      };
+      return MAP[s] || 'other';
+    }
+    const ROLE_COLOR = {
+      demolition: 'var(--role-demolition)', civil: 'var(--role-civil)', plumbing: 'var(--role-plumbing)',
+      electrical: 'var(--role-electrical)', carpentry: 'var(--role-carpentry)', tiling: 'var(--role-tiling)',
+      painting: 'var(--role-painting)', cleaning: 'var(--role-cleaning)', other: 'var(--role-other)',
+    };
+
+    // --- Dates & workdays (skip Sundays + 12/24,25,26 + 12/31 + 01/01) ---
+    const OFF_MD = new Set(['12-24', '12-25', '12-26', '12-31', '01-01']);
+    const isOff = (d) => d.getDay() === 0 || OFF_MD.has(String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+    function dateForDay(startISO, day) {
+      let dt = new Date(startISO), steps = Math.max(0, day - 1);
+      while (steps > 0) { dt.setDate(dt.getDate() + 1); if (!isOff(dt)) steps--; }
+      return dt;
+    }
+    const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
+
+    // --- Fetch ---
+    async function getPlan() { const r = await fetch(`${api}/plans/${encodeURIComponent(plan)}`); if (!r.ok) throw new Error('plan'); return r.json(); }
+    async function getGrid() { const r = await fetch(`${api}/plans/${encodeURIComponent(plan)}/grid`); if (!r.ok) throw new Error('grid'); return r.json(); }
+
+    // --- Build simple Gantt (area × role spans from first to last day they appear) ---
+    function normalizeTask(raw) {
+      try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); }
+      catch { return { name: String(raw || ''), role: 'other', workers: 0, hours: 0, done: false }; }
+    }
+
+    function buildSpans(cells) {
+      // spans[area][role] = {min, max, tasks:Set}
+      const spans = new Map(), maxDaySeen = { v: 0 };
+      for (const c of cells) {
+        const area = c.area; const day = +c.day || 0;
+        maxDaySeen.v = Math.max(maxDaySeen.v, day);
+        for (const s of (c.activities || [])) {
+          const t = normalizeTask(s);
+          const rk = roleKey(t.role);
+          if (!spans.has(area)) spans.set(area, new Map());
+          const byRole = spans.get(area);
+          const cur = byRole.get(rk) || { min: day, max: day, tasks: new Set() };
+          cur.min = Math.min(cur.min, day);
+          cur.max = Math.max(cur.max, day);
+          if (t.name) cur.tasks.add(t.name);
+          byRole.set(rk, cur);
+        }
+      }
+      return { spans, maxDay: maxDaySeen.v };
+    }
+
+    function renderGantt({ spans, maxDay }, startISO, viewFrom, viewSpan) {
+      const wrap = document.getElementById('ganttWrap');
+      wrap.innerHTML = '';
+
+      // Derive areas in alpha order for stable rows
+      const areas = [...spans.keys()].sort((a, b) => String(a).localeCompare(String(b)));
+
+      const colW = 18;         // px per day
+      const rowH = 26;         // px per area row
+      const leftW = 180;       // px for area labels
+      const topH = 34;         // px for day ticks
+      const days = Math.max(1, Math.min(maxDay, viewFrom + viewSpan - 1) - viewFrom + 1);
+      const width = leftW + days * colW + 40;
+      const height = topH + areas.length * rowH + 30;
+
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('width', width);
+      svg.setAttribute('height', height);
+
+      // Background
+      const bg = document.createElementNS(svgNS, 'rect');
+      bg.setAttribute('x', '0'); bg.setAttribute('y', '0'); bg.setAttribute('width', width); bg.setAttribute('height', height);
+      bg.setAttribute('fill', '#fff');
+      svg.appendChild(bg);
+
+      // Grid vertical lines + day labels
+      for (let d = 0; d < days; d++) {
+        const dayNo = viewFrom + d;
+        const x = leftW + d * colW;
+        const ln = document.createElementNS(svgNS, 'line');
+        ln.setAttribute('x1', x); ln.setAttribute('x2', x);
+        ln.setAttribute('y1', topH); ln.setAttribute('y2', height);
+        ln.setAttribute('stroke', 'var(--grid)');
+        svg.appendChild(ln);
+
+        const date = startISO ? dateForDay(startISO, dayNo) : null;
+        const lbl = `${dayNo}${date ? ' • ' + fmt(date) : ''}`;
+        const tx = document.createElementNS(svgNS, 'text');
+        tx.setAttribute('x', x + 4);
+        tx.setAttribute('y', 20);
+        tx.setAttribute('fill', 'var(--axis)');
+        tx.setAttribute('font-size', '11');
+        tx.textContent = lbl;
+        svg.appendChild(tx);
+      }
+      // last right edge
+      const lastX = leftW + days * colW;
+      const rightLn = document.createElementNS(svgNS, 'line');
+      rightLn.setAttribute('x1', lastX); rightLn.setAttribute('x2', lastX);
+      rightLn.setAttribute('y1', topH); rightLn.setAttribute('y2', height);
+      rightLn.setAttribute('stroke', 'var(--grid)');
+      svg.appendChild(rightLn);
+
+      // Area labels + horizontal lines
+      areas.forEach((area, i) => {
+        const y = topH + i * rowH;
+
+        const ln = document.createElementNS(svgNS, 'line');
+        ln.setAttribute('x1', 0); ln.setAttribute('x2', width);
+        ln.setAttribute('y1', y); ln.setAttribute('y2', y);
+        ln.setAttribute('stroke', 'var(--grid)');
+        svg.appendChild(ln);
+
+        const tx = document.createElementNS(svgNS, 'text');
+        tx.setAttribute('x', 8);
+        tx.setAttribute('y', y + rowH * 0.65);
+        tx.setAttribute('fill', '#111');
+        tx.setAttribute('font-size', '12');
+        tx.textContent = area;
+        svg.appendChild(tx);
+
+        // Bars for each role in this area, stacked vertically within the row
+        const roles = [...(spans.get(area) || new Map()).entries()]
+          .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+        const bandH = Math.min(18, Math.floor((rowH - 6) / Math.max(1, roles.length)));
+        roles.forEach(([rk, span], idx) => {
+          // Skip if outside view
+          const s = Math.max(viewFrom, span.min);
+          const e = Math.min(viewFrom + days - 1, span.max);
+          if (e < viewFrom || s > viewFrom + days - 1) return; // no overlap
+
+          const x = leftW + (s - viewFrom) * colW + 1;
+          const w = Math.max(2, (e - s + 1) * colW - 2);
+          const ry = y + 4 + idx * (bandH + 3);
+
+          const rect = document.createElementNS(svgNS, 'rect');
+          rect.setAttribute('x', x);
+          rect.setAttribute('y', ry);
+          rect.setAttribute('width', w);
+          rect.setAttribute('height', bandH);
+          rect.setAttribute('rx', 4);
+          rect.setAttribute('fill', ROLE_COLOR[rk] || 'var(--role-other)');
+          rect.setAttribute('opacity', '0.9');
+          rect.setAttribute('stroke', 'rgba(0,0,0,.15)');
+          rect.setAttribute('stroke-width', '0.5');
+
+          // Tooltip
+          const title = document.createElementNS(svgNS, 'title');
+          title.textContent = `${area} — ${rk}\nDays ${span.min}–${span.max}\n` +
+            `${span.tasks.size} task(s): ${[...span.tasks].slice(0, 6).join(', ')}${span.tasks.size > 6 ? '…' : ''}`;
+          rect.appendChild(title);
+
+          svg.appendChild(rect);
+        });
+      });
+
+      // left column boundary
+      const v = document.createElementNS(svgNS, 'line');
+      v.setAttribute('x1', leftW); v.setAttribute('x2', leftW);
+      v.setAttribute('y1', 0); v.setAttribute('y2', height);
+      v.setAttribute('stroke', 'var(--line)');
+      svg.appendChild(v);
+
+      document.getElementById('ganttWrap').appendChild(svg);
+    }
+
+    // --- Main load + controls ---
+    let PLAN_META = null, GRID = null;
+    let autoTimer = null;
+
+    async function loadAndRender() {
+      if (!api) { document.getElementById('ganttWrap').innerHTML = '<div class="muted" style="padding:12px">Add ?api=… to the URL</div>'; return; }
+      const [meta, grid] = await Promise.all([getPlan(), getGrid()]);
+      PLAN_META = meta; GRID = grid;
+      const startISO = meta.start_date || '';
+      document.getElementById('metaStart').textContent = startISO ? ('Start: ' + startISO) : 'Start: not set';
+      document.getElementById('metaSpan').textContent = `Total days: ${meta.total_days || '—'}`;
+
+      // View window
+      const viewFrom = Math.max(1, parseInt(document.getElementById('fromDay').value || '1', 10));
+      const viewSpan = Math.max(1, parseInt(document.getElementById('spanDays').value || '30', 10));
+
+      const cells = (grid.cells || []).map(c => ({ area: c.area, day: +c.day, activities: c.activities || [] }));
+      const { spans, maxDay } = buildSpans(cells);
+      renderGantt({ spans, maxDay }, startISO, viewFrom, viewSpan);
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadAndRender);
+    document.getElementById('applyView').addEventListener('click', loadAndRender);
+
+    document.getElementById('autoRefresh').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        autoTimer = setInterval(loadAndRender, 15000);
+      } else {
+        if (autoTimer) clearInterval(autoTimer);
+        autoTimer = null;
+      }
+    });
+
+    // Initial
+    loadAndRender();
+  </script>
+</body>
+
+</html>

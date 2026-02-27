@@ -1,13 +1,45 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <title>Remodeling Schedule Planner</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="assets/styles.css" />
-  <!-- SheetJS for XLSX import -->
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Floating actions dock styles -->
+  <style>
+    /* Keeps the top-right actions visible while scrolling left/right or up/down */
+    #floatingActions {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 6px 8px;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      z-index: 1000;
+      /* above grid and header */
+    }
+
+    /* A little breathing room so the dock doesn't cover content on very small screens */
+    body {
+      padding-top: 56px;
+    }
+
+    /* brief column highlight after jump */
+    .jump-highlight {
+      background: #fffbe6 !important;
+      box-shadow: inset 0 0 0 2px var(--primary);
+      transition: background 900ms ease;
+    }
+  </style>
 </head>
+
 <body>
   <header class="topbar">
     <div class="title">Remodeling Schedule Planner</div>
@@ -15,8 +47,15 @@
     <div class="controls">
       <label class="chk"><input id="allowMultiple" type="checkbox" /> Allow multiple activities per cell</label>
 
-      <input id="startDate" type="date" />
+      <input id="startDate" type="date" title="Start Date" />
+      <input id="endDate" type="date" title="End Date" />
+      <span id="daysRemainingCounter" class="chk" style="font-weight:bold; color:var(--danger);"></span>
+
       <button id="applyDatesBtn" class="btn">Apply Dates</button>
+
+      <!-- quick jump to a specific day -->
+      <input id="gotoDay" type="number" min="1" class="inp" placeholder="Day #" style="width:90px" />
+      <button id="gotoDayBtn" class="btn">Go</button>
 
       <button id="settingsBtn" class="btn">Settings</button>
       <button id="importCsvBtn" class="btn">Import CSV/XLSX</button>
@@ -27,6 +66,7 @@
       <button id="redoBtn" class="btn">Redo</button>
 
       <button id="reportsBtn" class="btn">Reports</button>
+      <button id="dashboardBtn" class="btn">Dashboard</button>
       <button id="resetBtn" class="btn danger">Reset</button>
     </div>
   </header>
@@ -107,16 +147,23 @@
         <button id="closeSettingsBtn" class="btn icon">✕</button>
       </div>
       <div class="settings-body">
-        <label>Backend URL <input id="cfgApiBase" class="inp" placeholder="https://web-production-f116.up.railway.app/" /></label>
+        <label>Backend URL <input id="cfgApiBase" class="inp"
+            placeholder="https://web-production-f116.up.railway.app/" /></label>
         <label>API Key <input id="cfgApiKey" class="inp" /></label>
         <label>Plan ID <input id="cfgPlanId" class="inp" placeholder="default" /></label>
+        <label>Token (t) <input id="cfgToken" class="inp" placeholder="RMETVM" /></label>
+        <label>Total days <input id="cfgTotalDays" class="inp" type="number" min="1" max="730"
+            placeholder="60" /></label>
+
         <label>Email test now
           <button id="emailNowBtn" class="btn" type="button">Send 3-day checklist</button>
         </label>
       </div>
       <div class="settings-foot">
+        <button id="publishBtn" class="btn">Publish schedule</button>
         <button id="saveSettingsBtn" class="btn primary">Save</button>
       </div>
+
     </div>
   </div>
 
@@ -129,6 +176,7 @@
           <button id="exportCsvBtn" class="btn">Export CSV</button>
           <button id="emailFromReportsBtn" class="btn">Email 3-day checklist</button>
           <button id="closeReportsBtn" class="btn icon">✕</button>
+          <button id="exportXlsxBtn" class="btn">Export XLSX (all days)</button>
         </div>
       </div>
       <div id="reportsTabs" class="tabs"></div>
@@ -136,10 +184,13 @@
     </div>
   </div>
 
+  <!-- SheetJS for XLSX import/export (load BEFORE our module code) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <script type="module">
     import { initState } from './js/state.js';
-    import { initUI }    from './js/ui.js';
-    import { initGrid }  from './js/grid.js';
+    import { initUI } from './js/ui.js';
+    import { initGrid } from './js/grid.js';
     import { wireReports } from './js/reports.js';
     import './js/importers.js';
 
@@ -148,5 +199,45 @@
     initGrid();
     wireReports();
   </script>
+
+  <!-- Floating actions dock bootstrap (runs after app init) -->
+  <script>
+    window.addEventListener('load', () => {
+      // Wire the Dashboard redirect (keep ?api, ?plan, ?t, etc.)
+      const dashBtn = document.getElementById('dashboardBtn');
+      if (dashBtn) {
+        dashBtn.addEventListener('click', () => {
+          const qs = location.search || '';
+          location.href = './dashboard.html' + qs;
+        });
+      }
+
+      // Which controls should always float with the viewport:
+      const ids = [
+        'startDate',
+        'applyDatesBtn',
+        'gotoDay', 'gotoDayBtn',
+        'settingsBtn',
+        'importCsvBtn',
+        'syncBtn',
+        'undoBtn',
+        'redoBtn',
+        'reportsBtn',
+        'dashboardBtn',
+        'resetBtn'
+      ];
+
+      const dock = document.createElement('div');
+      dock.id = 'floatingActions';
+      document.body.appendChild(dock);
+
+      // Move existing elements into the dock (listeners preserved).
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) dock.appendChild(el);
+      });
+    });
+  </script>
 </body>
+
 </html>
