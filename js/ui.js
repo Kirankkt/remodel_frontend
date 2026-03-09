@@ -1,7 +1,7 @@
 // ui.js
 console.log('ui.js loaded');
 
-import { defaultPalette, areas, totalDays, settings, saveSettings, pullLatest, setTotalDays, getWorkingDaysLeft } from './state.js';
+import { defaultPalette, areas, totalDays, settings, saveSettings, pullLatest, setTotalDays, getWorkingDaysLeft, HOLIDAYS } from './state.js';
 
 export const els = {
   allowMultiple: document.getElementById('allowMultiple'),
@@ -251,18 +251,44 @@ function todayIndexFromLocalStart() {
   const sd = localStorage.getItem('project_start_date') || '';
   if (!sd) return null;
   const [y, m, d] = sd.split('-').map(Number);
-  const t0 = new Date(y, m - 1, d); t0.setHours(0, 0, 0, 0);
-  const t1 = new Date(); t1.setHours(0, 0, 0, 0);
-  const days = Math.floor((t1 - t0) / 86400000);
-  return days + 1; // Day 1-based
+
+  // Workday calculation
+  let dt = new Date(y, m - 1, d); dt.setHours(0, 0, 0, 0);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+
+  if (now <= dt) return 1;
+
+  let idx = 1;
+  while (dt < now) {
+    dt.setDate(dt.getDate() + 1);
+    const dayOfWeek = dt.getDay();
+    const mmdd = String(dt.getMonth() + 1).padStart(2, '0') + "-" + String(dt.getDate()).padStart(2, '0');
+
+    if (dayOfWeek !== 0 && !HOLIDAYS.has(mmdd)) {
+      idx++;
+    }
+  }
+  return idx;
 }
 function qStartDay() { const i = todayIndexFromLocalStart(); return (i ? `&start_day=${i}` : ''); }
+
+function isTodayOff() {
+  const d = new Date();
+  if (d.getDay() === 0) return true;
+  const mmdd = String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+  return HOLIDAYS.has(mmdd);
+}
 
 function updateAdminButtonsVisibility(visible) {
   const r = document.getElementById('rolloverNowBtn');
   const u = document.getElementById('undoRolloverBtn');
   if (!r || !u) return;
-  r.style.display = visible ? 'inline-block' : 'none';
+
+  const off = isTodayOff();
+  r.style.display = (visible && !off) ? 'inline-block' : 'none';
+  if (visible && off) r.title = "Cannot rollover on Sundays or holidays";
+  else r.title = "Rollover now";
+
   u.style.display = visible ? 'inline-block' : 'none';
 }
 

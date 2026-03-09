@@ -408,3 +408,37 @@ export function massRollover(targetDay = 98) {
 // Make it available in the console globally for easy manual execution
 window.massRollover = massRollover;
 
+export function reverseRollover(sourceDay, targetDay) {
+  pushHistory(serializeRich);
+
+  let movedTasksCount = 0;
+  const cells = document.querySelectorAll(`tbody td[data-day="${sourceDay}"]`);
+
+  cells.forEach(sourceTd => {
+    const tr = sourceTd.closest('tr'); // same area (row)
+    const targetTd = tr.querySelector(`td[data-day="${targetDay}"]`);
+    if (!targetTd) return; // skip if target day doesn't exist in this row
+
+    const tasks = Array.from(sourceTd.querySelectorAll('.task'));
+
+    tasks.forEach(taskEl => {
+      try {
+        const taskData = JSON.parse(taskEl.dataset.task);
+        if (!taskData.done) {
+          const actionsDiv = targetTd.querySelector('.cell-actions');
+          targetTd.insertBefore(taskEl, actionsDiv);
+          movedTasksCount++;
+        }
+      } catch (e) {
+        console.error("Failed to parse task:", e);
+      }
+    });
+  });
+
+  persistNoHistory(serializeRich);
+  console.log(`Reverse rollover complete. Moved ${movedTasksCount} unfinished tasks from Day ${sourceDay} to Day ${targetDay}.`);
+  return movedTasksCount;
+}
+
+window.reverseRollover = reverseRollover;
+
