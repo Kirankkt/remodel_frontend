@@ -251,7 +251,7 @@
       const workers = Number(t.workers ?? t.w ?? 0) || 0;
       const hours = Number(t.hours ?? t.h ?? 0) || 0;
       const done = !!(t.done || t.d || t.x || t.dd);
-      const progress = Math.min(100, Math.max(0, Number(t.progress ?? 0) || 0));
+      const progress = Math.min(100, Math.max(0, Number(t.progress ?? t.p ?? 0) || 0));
       return { name, role, workers, hours, done, progress };
     }
 

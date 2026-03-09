@@ -92,10 +92,10 @@ export function encodeTaskString(t) {
 export function decodeTaskString(s) {
   if (typeof s !== 'string') {
     try { return _normalizeTaskObject(s || {}); }
-    catch { return { name: String(s || ''), role: '', workers: 0, hours: 0, done: false }; }
+    catch { return { name: String(s || ''), role: '', workers: 0, hours: 0, done: false, progress: 0 }; }
   }
   try { return _normalizeTaskObject(JSON.parse(s)); }
-  catch { return { name: String(s || ''), role: '', workers: 0, hours: 0, done: false }; }
+  catch { return { name: String(s || ''), role: '', workers: 0, hours: 0, done: false, progress: 0 }; }
 }
 function _normalizeTaskObject(t) {
   const name = t.name ?? t.task ?? t.n ?? '';
@@ -103,12 +103,15 @@ function _normalizeTaskObject(t) {
   const workers = Number.isFinite(+t.workers) ? +t.workers : (Number.isFinite(+t.w) ? +t.w : 0);
   const hours = Number.isFinite(+t.hours) ? +t.hours : (Number.isFinite(+t.h) ? +t.h : 0);
   const done = !!(t.done || t.d === true || t.x === true || t.dd === true);
+  const progress = Number.isFinite(+t.progress)
+    ? Math.max(0, Math.min(100, +t.progress))
+    : (Number.isFinite(+t.p) ? Math.max(0, Math.min(100, +t.p)) : 0);
   return {
     name, role, workers, hours,
     crew: t.crew || '', materials: t.materials || '', vendor: t.vendor || '',
     cost: Number.isFinite(+t.cost) ? +t.cost : 0,
     ordered: !!(t.ordered || t.o), delivered: !!(t.delivered || t.di),
-    orderDue: t.orderDue || '', deliveryDue: t.deliveryDue || '', done
+    orderDue: t.orderDue || '', deliveryDue: t.deliveryDue || '', done, progress
   };
 }
 
