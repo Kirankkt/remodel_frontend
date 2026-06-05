@@ -61,6 +61,11 @@
       <button id="importCsvBtn" class="btn">Import CSV/XLSX</button>
       <input id="csvFileInput" type="file" accept=".csv,.xlsx" hidden />
 
+      <button id="backupBtn" class="btn">⬇️ Backup</button>
+      <button id="restoreBtn" class="btn">⬆️ Restore</button>
+      <input id="restoreFileInput" type="file" accept=".json" hidden />
+      <button id="migrateTasksBtn" class="btn" style="background:#fef08a;color:#854d0e;border-color:#fde047;font-weight:bold;">Migrate Tasks</button>
+
       <button id="syncBtn" class="btn">Sync</button>
       <button id="undoBtn" class="btn">Undo</button>
       <button id="redoBtn" class="btn">Redo</button>
@@ -152,8 +157,8 @@
         <label>API Key <input id="cfgApiKey" class="inp" /></label>
         <label>Plan ID <input id="cfgPlanId" class="inp" placeholder="default" /></label>
         <label>Token (t) <input id="cfgToken" class="inp" placeholder="RMETVM" /></label>
-        <label>Total days <input id="cfgTotalDays" class="inp" type="number" min="1" max="730"
-            placeholder="60" /></label>
+        <label>Total days <input id="cfgTotalDays" class="inp" type="number" min="1" max="999"
+            placeholder="250" /></label>
 
         <label>Email test now
           <button id="emailNowBtn" class="btn" type="button">Send 3-day checklist</button>
@@ -224,7 +229,10 @@
         'redoBtn',
         'reportsBtn',
         'dashboardBtn',
-        'resetBtn'
+        'resetBtn',
+        'backupBtn',
+        'restoreBtn',
+        'migrateTasksBtn'
       ];
 
       const dock = document.createElement('div');

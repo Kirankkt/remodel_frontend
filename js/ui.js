@@ -39,6 +39,11 @@ export const els = {
   redoBtn: document.getElementById('redoBtn'),
 
   reportsBtn: document.getElementById('reportsBtn'),
+
+  backupBtn: document.getElementById('backupBtn'),
+  restoreBtn: document.getElementById('restoreBtn'),
+  restoreFileInput: document.getElementById('restoreFileInput'),
+  migrateTasksBtn: document.getElementById('migrateTasksBtn'),
 };
 
 /* ---------------------------
@@ -560,6 +565,54 @@ export function initUI() {
 
   // Enable multi-select + multi-drag with persistence
   wireMultiDrag();
+
+  // Backup Data
+  els.backupBtn?.addEventListener('click', () => {
+    const data = localStorage.getItem('grid');
+    const start = localStorage.getItem('project_start_date');
+    const blob = new Blob([JSON.stringify({ grid: JSON.parse(data || '{}'), project_start_date: start }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `remodel_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Restore Data
+  els.restoreBtn?.addEventListener('click', () => {
+    els.restoreFileInput.click();
+  });
+
+  els.restoreFileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        if (json.grid) {
+          localStorage.setItem('grid', JSON.stringify(json.grid));
+        }
+        if (json.project_start_date) {
+          localStorage.setItem('project_start_date', json.project_start_date);
+        }
+        alert('Restore successful! The page will now reload to show the restored data.');
+        location.reload();
+      } catch (err) {
+        alert('Failed to parse backup file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // reset
+  });
+
+  // Migrate Tasks
+  els.migrateTasksBtn?.addEventListener('click', async () => {
+    if (!confirm('This will move unfinished tasks from Day 178 to their target dates and drop unmatched tasks.\\n\\nHave you downloaded a backup first?')) return;
+    const { migrateTasksToTargetDates } = await import('./grid.js');
+    migrateTasksToTargetDates();
+  });
 }
 
 // ---- "Send 3-day checklist" (admin-only) ----

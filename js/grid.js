@@ -1,7 +1,7 @@
 // grid.js
 import {
   areas, totalDays, defaultPalette,
-  encodeTaskString, decodeTaskString, dateForDay, fmtDate,
+  encodeTaskString, decodeTaskString, dateForDay, dayForDate, fmtDate,
   pushHistory, persist, persistNoHistory, seedHistory, pullLatest,
   undo, redo, settings
 } from './state.js';
@@ -441,4 +441,87 @@ export function reverseRollover(sourceDay, targetDay) {
 }
 
 window.reverseRollover = reverseRollover;
+
+export function migrateTasksToTargetDates() {
+  const sourceDay = 178;
+  const sourceCells = document.querySelectorAll(`tbody td[data-day="${sourceDay}"]`);
+  
+  if (sourceCells.length === 0) {
+    alert("No tasks found on Day 178 to migrate.");
+    return;
+  }
+  
+  pushHistory(serializeRich);
+  
+  // Mapping rules (Year is 2026)
+  const rules = [
+    { match: ['carpentry'], date: '2026-06-01' },
+    { match: ['compound wall fabrication'], date: '2026-07-20' }, // More specific match first
+    { match: ['fabrication'], date: '2026-06-03' },
+    { match: ['civil'], date: '2026-06-08' },
+    { match: ['septic', 'water tank'], date: '2026-06-11' },
+    { match: ['compound wall', 'gate'], date: '2026-07-01' },
+    { match: ['putty'], date: '2026-07-01' },
+    { match: ['interior'], date: '2026-07-01' },
+    { match: ['painting'], date: '2026-07-01' },
+    { match: ['landscaping', 'landscape'], date: '2026-07-01' },
+    { match: ['tiling', 'tile'], date: '2026-07-26' },
+    { match: ['electrical', 'electric'], date: '2026-08-20' },
+    { match: ['plumb', 'fixture'], date: '2026-08-20' },
+  ];
+  
+  let moved = 0;
+  let dropped = 0;
+  
+  sourceCells.forEach(td => {
+    const tr = td.closest('tr');
+    const tasks = Array.from(td.querySelectorAll('.task'));
+    
+    tasks.forEach(taskEl => {
+      try {
+        const t = JSON.parse(taskEl.dataset.task);
+        if (t.done) return; // Ignore finished tasks
+        
+        const searchStr = (t.name + ' ' + t.role).toLowerCase();
+        let targetDate = null;
+        
+        for (const rule of rules) {
+          if (rule.match.some(m => searchStr.includes(m))) {
+            targetDate = rule.date;
+            break;
+          }
+        }
+        
+        if (targetDate) {
+          const targetDay = dayForDate(targetDate);
+          if (targetDay) {
+            const targetTd = tr.querySelector(`td[data-day="${targetDay}"]`);
+            if (targetTd) {
+              const actionsDiv = targetTd.querySelector('.cell-actions');
+              targetTd.insertBefore(taskEl, actionsDiv);
+              moved++;
+            } else {
+              // Day is out of bounds, drop it
+              taskEl.remove();
+              dropped++;
+            }
+          } else {
+            taskEl.remove();
+            dropped++;
+          }
+        } else {
+          // Rule not matched, drop the task
+          taskEl.remove();
+          dropped++;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  });
+  
+  persistNoHistory(serializeRich);
+  alert(`Migration complete! Moved ${moved} tasks and dropped ${dropped} unmatched tasks.`);
+}
+
 

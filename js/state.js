@@ -1,9 +1,9 @@
 // state.js
-export let totalDays = Number(localStorage.getItem('plan_total_days') || 60);
+export let totalDays = Number(localStorage.getItem('plan_total_days') || 250);
 export function setTotalDays(n) {
   n = parseInt(n, 10);
-  if (!Number.isFinite(n) || n < 1) n = 60;
-  if (n > 730) n = 730; // cap ~2y
+  if (!Number.isFinite(n) || n < 1) n = 250;
+  if (n > 999) n = 999; // max 999 days
   totalDays = n;
   localStorage.setItem('plan_total_days', String(n));
 }
@@ -138,6 +138,30 @@ export function dateForDay(day) {
     remain--;
   }
   return dt;
+}
+
+export function dayForDate(targetIsoDate) {
+  const start = localStorage.getItem("project_start_date") || ""; // "YYYY-MM-DD"
+  if (!start) return null;
+  const [y, m, d] = start.split("-").map(Number);
+  const startDt = new Date(y, m - 1, d);
+  startDt.setHours(0,0,0,0);
+  
+  const [ty, tm, td] = targetIsoDate.split("-").map(Number);
+  const targetDt = new Date(ty, tm - 1, td);
+  targetDt.setHours(0,0,0,0);
+  
+  if (targetDt < startDt) return 1;
+  
+  let day = 1;
+  let curr = new Date(startDt);
+  while (curr < targetDt) {
+    curr.setDate(curr.getDate() + 1);
+    const mmdd = String(curr.getMonth() + 1).padStart(2, '0') + "-" + String(curr.getDate()).padStart(2, '0');
+    if (curr.getDay() === 0 || HOLIDAYS.has(mmdd)) continue;
+    day++;
+  }
+  return day;
 }
 
 export function getWorkingDaysLeft(endDateStr) {
