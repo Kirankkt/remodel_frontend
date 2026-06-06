@@ -609,7 +609,7 @@ export function initUI() {
 
   // Migrate Tasks
   els.migrateTasksBtn?.addEventListener('click', async () => {
-    if (!confirm('This will move unfinished tasks from Day 178 to their target dates and drop unmatched tasks.\\n\\nHave you downloaded a backup first?')) return;
+    if (!confirm('This will move unfinished tasks from Day 178 to their target dates. Unmatched tasks will stay in place.\\n\\nHave you downloaded a backup first?')) return;
     const { migrateTasksToTargetDates } = await import('./grid.js');
     migrateTasksToTargetDates();
   });

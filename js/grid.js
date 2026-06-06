@@ -455,9 +455,9 @@ export function migrateTasksToTargetDates() {
   
   // Mapping rules (Year is 2026)
   const rules = [
-    { match: ['carpentry'], date: '2026-06-01' },
+    { match: ['carpentry'], date: '2026-06-06' },
     { match: ['compound wall fabrication'], date: '2026-07-20' }, // More specific match first
-    { match: ['fabrication'], date: '2026-06-03' },
+    { match: ['fabrication'], date: '2026-06-06' },
     { match: ['civil'], date: '2026-06-08' },
     { match: ['septic', 'water tank'], date: '2026-06-11' },
     { match: ['compound wall', 'gate'], date: '2026-07-01' },
@@ -471,7 +471,7 @@ export function migrateTasksToTargetDates() {
   ];
   
   let moved = 0;
-  let dropped = 0;
+  let stayed = 0;
   
   sourceCells.forEach(td => {
     const tr = td.closest('tr');
@@ -501,18 +501,16 @@ export function migrateTasksToTargetDates() {
               targetTd.insertBefore(taskEl, actionsDiv);
               moved++;
             } else {
-              // Day is out of bounds, drop it
-              taskEl.remove();
-              dropped++;
+              // Day is out of bounds, let it stay
+              stayed++;
             }
           } else {
-            taskEl.remove();
-            dropped++;
+            // Day could not be computed, let it stay
+            stayed++;
           }
         } else {
-          // Rule not matched, drop the task
-          taskEl.remove();
-          dropped++;
+          // Rule not matched, let the task stay
+          stayed++;
         }
       } catch (e) {
         console.error(e);
@@ -521,7 +519,7 @@ export function migrateTasksToTargetDates() {
   });
   
   persistNoHistory(serializeRich);
-  alert(`Migration complete! Moved ${moved} tasks and dropped ${dropped} unmatched tasks.`);
+  alert(`Migration complete! Moved ${moved} tasks. ${stayed} tasks did not match and were left in place.`);
 }
 
 
